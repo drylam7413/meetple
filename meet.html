@@ -1,0 +1,2035 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Meetple - 전문 모임·여행 조율 & 초청장</title>
+  <meta name="description" content="0원 서버리스, URL 해시 동기화 기반 실시간 모임·여행 조율기 및 모바일 초청장, 캘린더(.ics) 1클릭 내보내기">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              dark: '#090A0F',
+              panel: '#12131C',
+              purple: '#A855F7',
+              indigo: '#6366F1'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #090A0F;
+      user-select: none;
+    }
+
+    .grid-cell {
+      touch-action: none;
+      transition: background-color 0.12s ease;
+    }
+
+    .glow-purple {
+      box-shadow: 0 0 30px -5px rgba(168, 85, 247, 0.25);
+    }
+
+    .glow-card {
+      box-shadow: 0 0 20px -2px rgba(168, 85, 247, 0.15);
+    }
+
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+
+<body class="text-slate-100 min-h-screen flex flex-col font-sans selection:bg-purple-600 selection:text-white">
+
+  <!-- Header -->
+  <header class="border-b border-white/10 backdrop-blur-md sticky top-0 z-50 bg-[#090A0F]/85">
+    <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-2 group">
+        <div
+          class="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center shadow-md shadow-purple-500/30 group-hover:scale-105 transition">
+          <span class="text-white font-black text-sm">M</span>
+        </div>
+        <span class="font-bold text-lg tracking-tight text-white">Meetple<span class="text-purple-500">.</span></span>
+      </a>
+
+      <div class="flex items-center gap-2 md:gap-3">
+        <!-- New Room Btn -->
+        <button id="resetRoomBtn" onclick="resetToNewRoom()"
+          class="hidden text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:border-purple-500/40 text-slate-300 transition">
+          <span data-i18n="btn_new_room">+ 새 모임</span>
+        </button>
+
+        <!-- 5 Languages Select -->
+        <div class="relative">
+          <select id="langSelect" onchange="changeLang(this.value)"
+            class="appearance-none bg-white/5 border border-white/10 hover:border-purple-500/50 text-slate-200 text-xs font-semibold py-1.5 pl-2.5 pr-6 rounded-lg outline-none cursor-pointer">
+            <option value="kr" class="bg-[#12131C] text-white">🇰🇷 한국어</option>
+            <option value="en" class="bg-[#12131C] text-white">🇺🇸 English</option>
+            <option value="ja" class="bg-[#12131C] text-white">🇯🇵 日本語</option>
+            <option value="zh" class="bg-[#12131C] text-white">🇨🇳 中文</option>
+            <option value="es" class="bg-[#12131C] text-white">🇪🇸 Español</option>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 text-slate-400">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6">
+
+    <!-- VIEW 1: Room Creation Form -->
+    <section id="createView" class="max-w-xl mx-auto py-6">
+      <div class="p-6 md:p-8 rounded-2xl bg-[#12131C] border border-purple-500/20 glow-purple">
+        <div class="flex items-center justify-between mb-4">
+          <span
+            class="px-2.5 py-1 rounded-md bg-purple-500/20 text-purple-300 text-xs font-bold uppercase tracking-wider">Step
+            1</span>
+          <span class="text-xs text-slate-400" data-i18n="create_badge">0원 서버리스 방 개설</span>
+        </div>
+        <h2 class="text-2xl font-extrabold text-white mb-6" data-i18n="create_title">새 모임 & 여행 개설</h2>
+
+        <form id="createForm" onsubmit="handleCreateRoom(event)" class="space-y-5">
+          <!-- Category Selector -->
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-2" data-i18n="label_category">목적 분류</label>
+            <div class="grid grid-cols-4 gap-2">
+              <button type="button" onclick="selectFormCategory('event')" id="catBtn-event"
+                class="form-cat-btn py-2.5 rounded-xl border border-white/10 bg-[#090A0F] text-xs font-bold text-slate-300 hover:border-purple-500 transition">🎉
+                이벤트</button>
+              <button type="button" onclick="selectFormCategory('meeting')" id="catBtn-meeting"
+                class="form-cat-btn py-2.5 rounded-xl border border-purple-500 bg-purple-600/20 text-xs font-bold text-purple-300 transition">👥
+                모임</button>
+              <button type="button" onclick="selectFormCategory('travel')" id="catBtn-travel"
+                class="form-cat-btn py-2.5 rounded-xl border border-white/10 bg-[#090A0F] text-xs font-bold text-slate-300 hover:border-purple-500 transition">✈️
+                여행</button>
+              <button type="button" onclick="selectFormCategory('place')" id="catBtn-place"
+                class="form-cat-btn py-2.5 rounded-xl border border-white/10 bg-[#090A0F] text-xs font-bold text-slate-300 hover:border-purple-500 transition">📍
+                장소</button>
+            </div>
+          </div>
+
+          <!-- Meeting Title -->
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-2" data-i18n="label_title">모임 이름</label>
+            <input type="text" id="inputTitle" required placeholder="예: 도쿄 3박 4일 여행, 팀 스프린트 회의"
+              class="w-full px-4 py-3 rounded-xl bg-[#090A0F] border border-white/10 focus:border-purple-500 outline-none text-white text-sm transition">
+          </div>
+
+          <!-- Creator Nickname (Simplified: No PIN) -->
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1.5" data-i18n="label_creator">내 닉네임</label>
+            <input type="text" id="inputCreator" required placeholder="예: 민수, Sarah"
+              class="w-full px-4 py-3 rounded-xl bg-[#090A0F] border border-white/10 focus:border-purple-500 outline-none text-white text-xs transition">
+          </div>
+
+          <!-- Candidate Dates (Inline Mini Calendar & Badges) -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label class="text-xs font-bold text-slate-300" data-i18n="label_dates">후보 날짜</label>
+              <div class="flex gap-1.5 text-xs">
+                <button type="button" onclick="setQuickDates(3)"
+                  class="px-2 py-0.5 rounded bg-white/5 hover:bg-purple-600/30 text-purple-300 border border-white/10 transition"
+                  data-i18n="preset_3days">3일간</button>
+                <button type="button" onclick="setQuickDates(5)"
+                  class="px-2 py-0.5 rounded bg-white/5 hover:bg-purple-600/30 text-purple-300 border border-white/10 transition"
+                  data-i18n="preset_5days">5일간</button>
+                <button type="button" onclick="setWeekendDates()"
+                  class="px-2 py-0.5 rounded bg-white/5 hover:bg-purple-600/30 text-purple-300 border border-white/10 transition"
+                  data-i18n="preset_weekend">이번 주말</button>
+              </div>
+            </div>
+
+            <!-- Inline Mini Calendar Container -->
+            <div class="p-3 rounded-2xl bg-[#090A0F] border border-white/10 mb-2.5">
+              <!-- Calendar Header: Prev Month | Year Month | Next Month -->
+              <div class="flex items-center justify-between mb-2 px-1">
+                <button type="button" onclick="changeMiniCalMonth(-1)"
+                  class="w-7 h-7 rounded-lg bg-white/5 hover:bg-purple-600/30 text-slate-300 hover:text-white flex items-center justify-center transition text-xs font-bold">
+                  ❮
+                </button>
+                <span id="miniCalTitle" class="text-xs font-bold text-white tracking-wide"></span>
+                <button type="button" onclick="changeMiniCalMonth(1)"
+                  class="w-7 h-7 rounded-lg bg-white/5 hover:bg-purple-600/30 text-slate-300 hover:text-white flex items-center justify-center transition text-xs font-bold">
+                  ❯
+                </button>
+              </div>
+
+              <!-- Day of Week Header -->
+              <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-slate-500 mb-1">
+                <span class="text-red-400">일</span>
+                <span>월</span>
+                <span>화</span>
+                <span>수</span>
+                <span>목</span>
+                <span>금</span>
+                <span class="text-blue-400">토</span>
+              </div>
+
+              <!-- Days Grid -->
+              <div id="miniCalDaysGrid" class="grid grid-cols-7 gap-1 text-center"></div>
+            </div>
+
+            <!-- Accumulated Date Badges -->
+            <div id="datePills"
+              class="flex flex-wrap gap-1.5 min-h-[42px] p-2.5 rounded-xl bg-[#090A0F] border border-white/10 items-center">
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1.5">💡 달력 날짜를 클릭하면 즉시 추가/해제(토글)됩니다.</p>
+          </div>
+
+          <!-- Time Range & Step Interval -->
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <span class="text-[11px] text-slate-400 block mb-1" data-i18n="time_start">시작 시간</span>
+              <select id="selectStartHour"
+                class="w-full px-2.5 py-2.5 rounded-xl bg-[#090A0F] border border-white/10 text-white text-xs outline-none focus:border-purple-500"></select>
+            </div>
+            <div>
+              <span class="text-[11px] text-slate-400 block mb-1" data-i18n="time_end">종료 시간</span>
+              <select id="selectEndHour"
+                class="w-full px-2.5 py-2.5 rounded-xl bg-[#090A0F] border border-white/10 text-white text-xs outline-none focus:border-purple-500"></select>
+            </div>
+            <div>
+              <span class="text-[11px] text-slate-400 block mb-1" data-i18n="time_interval">조율 단위</span>
+              <select id="selectInterval"
+                class="w-full px-2.5 py-2.5 rounded-xl bg-[#090A0F] border border-white/10 text-white text-xs outline-none focus:border-purple-500">
+                <option value="60">1시간</option>
+                <option value="30" selected>30분</option>
+                <option value="15">15분</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Places List & Map Switcher (국내 네이버 지도 vs 해외 구글 지도) -->
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1.5" data-i18n="label_places">방문 장소 & 코스 (국내/해외 지도
+              연동)</label>
+            <div class="flex gap-2 mb-2">
+              <select id="placeTypeSelect"
+                class="w-24 px-2 py-2 rounded-xl bg-[#090A0F] border border-white/10 text-white text-xs outline-none">
+                <option value="domestic">🇰🇷 국내</option>
+                <option value="intl">🌍 해외</option>
+              </select>
+              <input type="text" id="placeInput"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();addPlaceItem();}"
+                placeholder="예: 강남역 11번 출구 or 도쿄 타워"
+                class="flex-1 px-3 py-2 rounded-xl bg-[#090A0F] border border-white/10 text-white text-xs outline-none focus:border-purple-500">
+              <button type="button" onclick="addPlaceItem()"
+                class="px-3.5 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/40 border border-purple-500/40 text-purple-300 text-xs font-bold transition">
+                + 추가
+              </button>
+            </div>
+            <div id="formPlacesList" class="space-y-1.5 max-h-36 overflow-y-auto"></div>
+          </div>
+
+          <!-- Memo / Notice -->
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1.5" data-i18n="label_memo">공지 및 메모</label>
+            <textarea id="inputMemo" rows="2" placeholder="예: 편한 복장으로 모여주세요. 문의는 단톡방에 남겨주세요."
+              class="w-full px-3.5 py-2.5 rounded-xl bg-[#090A0F] border border-white/10 text-white text-xs outline-none focus:border-purple-500"></textarea>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit"
+            class="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-600/40 hover:scale-[1.01] active:scale-[0.99] transition">
+            <span data-i18n="btn_create">모임 개설하고 일정 조율 시작 🚀</span>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- VIEW 2: Scheduler & Timetable Grid View -->
+    <section id="scheduleView" class="hidden space-y-6">
+
+      <!-- Room Header Banner -->
+      <div
+        class="p-4 md:p-6 rounded-2xl bg-[#12131C] border border-purple-500/20 glow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2 mb-1.5">
+            <span id="roomCatBadge"
+              class="px-2 py-0.5 rounded text-[11px] font-bold bg-purple-600/30 text-purple-300 border border-purple-500/30">👥
+              모임</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="text-xs text-purple-400 font-semibold" data-i18n="sync_live">URL 해시 실시간 동기화</span>
+          </div>
+          <h2 id="roomTitleDisplay" class="text-2xl font-black text-white tracking-tight"></h2>
+          <p id="roomMetaDisplay" class="text-xs text-slate-400 mt-1"></p>
+        </div>
+
+        <!-- Share & Action Buttons -->
+        <div class="flex items-center gap-2">
+          <!-- Timezone Switcher -->
+          <select id="timezoneSelect" onchange="changeTimezone(this.value)"
+            class="bg-[#090A0F] border border-white/10 text-slate-300 text-xs py-2 px-2.5 rounded-xl outline-none focus:border-purple-500">
+            <option value="Asia/Seoul">🇰🇷 KST (UTC+9)</option>
+            <option value="Asia/Tokyo">🇯🇵 JST (UTC+9)</option>
+            <option value="Asia/Shanghai">🇨🇳 CST (UTC+8)</option>
+            <option value="UTC">🌐 UTC (UTC+0)</option>
+            <option value="Europe/London">🇬🇧 GMT (UTC+0)</option>
+            <option value="Europe/Paris">🇪🇺 CET (UTC+1)</option>
+            <option value="America/New_York">🇺🇸 EST (UTC-5)</option>
+            <option value="America/Los_Angeles">🇺🇸 PST (UTC-8)</option>
+          </select>
+
+          <button onclick="copyShareUrl()"
+            class="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-purple-600/30 flex items-center gap-1.5 active:scale-95 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+              </path>
+            </svg>
+            <span data-i18n="btn_copy_link">공유 링크</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Top 3 Optimal Times Auto-Recommendation Banner -->
+      <div class="p-4 rounded-2xl bg-[#12131C] border border-purple-500/30 space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">🏆</span>
+            <span class="text-xs font-bold text-purple-300 uppercase tracking-wider" data-i18n="top3_title">히트맵 분석 최적의
+              시간 TOP 3</span>
+          </div>
+          <span class="text-[11px] text-slate-500" data-i18n="top3_sub">가장 많은 인원이 참석 가능한 시간대</span>
+        </div>
+
+        <div id="top3List" class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- 1. Participant Nickname Gate & Active Bar -->
+      <!-- Name Gate Card (Displayed when participant has not entered name yet, or changes name) -->
+      <div id="nameGateCard" class="p-5 rounded-2xl bg-[#12131C] border border-purple-500/40 glow-purple shadow-xl">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <h3 class="text-sm md:text-base font-extrabold text-white flex items-center gap-2">
+              <span>👋</span> <span data-i18n="gate_title">모임 참여자 이름을 입력해 주세요</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5" data-i18n="gate_desc">로그인 없이 닉네임만 입력하면 내 시간표를 바로 칠할 수 있습니다.</p>
+          </div>
+          <div class="flex items-center gap-2 w-full md:w-auto">
+            <input type="text" id="gateNickInput"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();submitGateNick();}" placeholder="이름 또는 닉네임 입력"
+              class="flex-1 md:w-44 px-3.5 py-2 rounded-xl bg-[#090A0F] border border-white/10 text-white text-xs font-bold outline-none focus:border-purple-500 transition">
+            <button type="button" onclick="submitGateNick()"
+              class="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-purple-600/40 transition whitespace-nowrap">
+              참여하기 🚀
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Select Existing Participant List -->
+        <div class="mt-3 pt-3 border-t border-white/5 flex flex-wrap items-center gap-1.5 text-xs">
+          <span class="text-slate-400 font-medium">기존 참여자 선택:</span>
+          <div id="gateExistingList" class="flex flex-wrap items-center gap-1.5"></div>
+        </div>
+      </div>
+
+      <!-- Active User Bar (Shown when active user is selected) -->
+      <div id="activeUserBar"
+        class="hidden p-3.5 rounded-xl bg-[#12131C] border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-2 text-xs">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="text-slate-300">현재 참여자:</span>
+          <span id="activeUserNameDisplay"
+            class="font-black text-white px-2 py-0.5 rounded bg-purple-600 text-xs shadow-sm"></span>
+          <button type="button" onclick="openNameGate()"
+            class="text-xs text-purple-400 hover:text-purple-300 underline ml-1 font-semibold">이름 변경 / 전환</button>
+        </div>
+
+        <div class="flex items-center gap-1.5 flex-wrap text-xs">
+          <span class="text-slate-400 font-medium" data-i18n="participants_label">참여자:</span>
+          <div id="participantsList" class="flex flex-wrap items-center gap-1.5"></div>
+        </div>
+      </div>
+
+      <!-- Travel Itinerary & Places Section (국내/해외 지도 연동 & 1, 2, 3 번호 동선) -->
+      <div id="placesTimelineCard" class="hidden p-5 rounded-2xl bg-[#12131C] border border-white/10 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <span>🗺️</span> <span data-i18n="itinerary_title">방문 코스 및 동선 안내</span>
+          </h3>
+          <span class="text-[11px] text-slate-400" data-i18n="itinerary_sub">순서대로 번호가 매겨진 여행 타임라인</span>
+        </div>
+        <div id="placesSequenceList" class="space-y-3"></div>
+      </div>
+
+      <!-- Mobile Tab Switcher (When2meet: 내 시간표 vs 전체 히트맵) -->
+      <div
+        class="flex lg:hidden items-center justify-center p-1 rounded-xl bg-white/5 border border-white/10 gap-1 text-xs">
+        <button id="mTabMy" type="button" onclick="switchMobileTab('my')"
+          class="flex-1 py-2 rounded-lg font-bold bg-emerald-600 text-white transition">
+          🙋 내 시간표 (칠하기)
+        </button>
+        <button id="mTabGroup" type="button" onclick="switchMobileTab('group')"
+          class="flex-1 py-2 rounded-lg text-slate-400 hover:text-white transition">
+          👥 전체 히트맵
+        </button>
+      </div>
+
+      <!-- 2. When2meet Style 2-Pane Grids (Side-by-Side on Desktop, Tabbable on Mobile) -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+        <!-- Left Pane: My Availability (내 가능 시간) -->
+        <div id="myGridColumn" class="space-y-2">
+          <div class="p-3.5 rounded-xl bg-[#12131C] border border-emerald-500/30 flex items-center justify-between">
+            <div>
+              <h3 class="text-xs md:text-sm font-bold text-white flex items-center gap-1.5">
+                <span class="w-3 h-3 rounded-full bg-emerald-400"></span>
+                <span>내 가능 시간 칠하기 (My Availability)</span>
+              </h3>
+              <p class="text-[11px] text-slate-400 mt-0.5">드래그 또는 터치로 가능한 시간을 초록색으로 칠하세요.</p>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button type="button" onclick="selectAllMySlots()"
+                class="px-2 py-1 rounded-lg bg-white/5 hover:bg-emerald-600/30 text-emerald-300 border border-white/10 text-[11px] font-semibold transition">전체
+                선택</button>
+              <button type="button" onclick="clearAllMySlots()"
+                class="px-2 py-1 rounded-lg bg-white/5 hover:bg-red-600/30 text-slate-400 hover:text-red-300 border border-white/10 text-[11px] font-semibold transition">모두
+                지우기</button>
+            </div>
+          </div>
+
+          <div class="rounded-2xl bg-[#12131C] border border-white/10 p-2 md:p-3 overflow-x-auto shadow-2xl relative">
+            <div id="myTimetableGrid" class="min-w-[280px] select-none"></div>
+          </div>
+        </div>
+
+        <!-- Right Pane: Group Availability Heatmap (전체 히트맵) -->
+        <div id="groupGridColumn" class="hidden lg:block space-y-2">
+          <div class="p-3.5 rounded-xl bg-[#12131C] border border-purple-500/30 flex items-center justify-between">
+            <div>
+              <h3 class="text-xs md:text-sm font-bold text-white flex items-center gap-1.5">
+                <span class="w-3 h-3 rounded-full bg-purple-500"></span>
+                <span>전체 참여자 히트맵 (Group Availability)</span>
+              </h3>
+              <p class="text-[11px] text-slate-400 mt-0.5">인원수가 많을수록 보라색 농도가 짙어집니다.</p>
+            </div>
+            <!-- Heatmap Gradient Legend -->
+            <div class="flex items-center gap-1 text-[10px] text-slate-400">
+              <span>0</span>
+              <div class="w-3.5 h-3.5 rounded bg-[#0d0f18] border border-white/10"></div>
+              <div class="w-3.5 h-3.5 rounded bg-purple-600/30"></div>
+              <div class="w-3.5 h-3.5 rounded bg-purple-600/70"></div>
+              <div class="w-3.5 h-3.5 rounded bg-purple-500 ring-1 ring-purple-300"></div>
+              <span>전원</span>
+            </div>
+          </div>
+
+          <div class="rounded-2xl bg-[#12131C] border border-white/10 p-2 md:p-3 overflow-x-auto shadow-2xl">
+            <div id="groupTimetableGrid" class="min-w-[280px] select-none"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-Time Slot Inspector Panel (Available vs Unavailable Roster) -->
+      <div id="slotDetailCard"
+        class="p-4 rounded-xl bg-[#12131C] border border-purple-500/30 text-xs shadow-lg space-y-1.5 min-h-[58px]">
+        <div id="slotDetailHeader" class="font-bold text-slate-300 flex items-center justify-between">
+          <span class="text-slate-400">🕒 시간 칸 위에 마우스를 올리거나 탭하면 참석 가능한 사람과 불가능한 사람 명단이 나타납니다.</span>
+        </div>
+        <div id="slotDetailBody"></div>
+      </div>
+
+      <!-- Bottom Floating Save / Copy Bar -->
+      <div class="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="text-xs text-slate-500">
+          💡 <span data-i18n="bottom_tip">시간을 선택하면 URL에 즉시 저장됩니다. 친구들에게 링크를 전달하세요!</span>
+        </div>
+        <button onclick="saveAndCopy()"
+          class="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 active:scale-95 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          <span data-i18n="btn_save_copy">일정 저장 & 공유 링크 복사</span>
+        </button>
+      </div>
+
+    </section>
+
+    <!-- VIEW 3: Mobile Invitation Card (모바일 초청장 모드) -->
+    <section id="invitationView" class="hidden max-w-xl mx-auto py-4">
+      <div class="p-6 md:p-8 rounded-3xl bg-[#12131C] border border-purple-500/30 glow-purple relative overflow-hidden">
+        <!-- Neon decorative background -->
+        <div class="absolute -top-20 -right-20 w-52 h-52 bg-purple-600/20 rounded-full blur-[80px] pointer-events-none">
+        </div>
+        <div
+          class="absolute -bottom-20 -left-20 w-52 h-52 bg-indigo-600/20 rounded-full blur-[80px] pointer-events-none">
+        </div>
+
+        <!-- Ticket Header -->
+        <div class="flex items-center justify-between border-b border-white/10 pb-4 mb-6 relative z-10">
+          <div
+            class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold tracking-wider uppercase">
+            <span>✨</span> <span data-i18n="invite_badge">OFFICIAL INVITATION</span>
+          </div>
+          <button onclick="switchToScheduler()"
+            class="text-xs text-slate-400 hover:text-purple-300 transition flex items-center gap-1">
+            <span>✏️</span> <span data-i18n="invite_back_to_schedule">일정 다시 조율하기</span>
+          </button>
+        </div>
+
+        <div class="relative z-10 space-y-6">
+          <!-- Title & Category -->
+          <div>
+            <span id="invCatLabel" class="text-xs text-purple-400 font-bold tracking-wider uppercase block mb-1"></span>
+            <h1 id="invTitle" class="text-2xl md:text-3xl font-black text-white tracking-tight leading-snug"></h1>
+          </div>
+
+          <!-- Confirmed Time Highlight Box -->
+          <div
+            class="p-5 rounded-2xl bg-gradient-to-r from-purple-950/80 to-indigo-950/80 border border-purple-500/50 flex items-center gap-4 shadow-xl">
+            <div
+              class="w-12 h-12 rounded-xl bg-purple-600/30 border border-purple-400/40 flex items-center justify-center text-2xl">
+              📅
+            </div>
+            <div>
+              <div class="text-[11px] text-purple-300 font-bold uppercase tracking-wider"
+                data-i18n="inv_confirmed_title">확정된 모임 일정</div>
+              <div id="invDateTime" class="text-lg md:text-xl font-black text-white mt-0.5"></div>
+              <div id="invTzDisplay" class="text-[11px] text-slate-400"></div>
+            </div>
+          </div>
+
+          <!-- Places & Navigation Map Links -->
+          <div id="invPlacesBox" class="space-y-3">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span>📍</span> <span data-i18n="inv_location_title">장소 및 길찾기 안내</span>
+            </h3>
+            <div id="invPlacesList" class="space-y-2"></div>
+          </div>
+
+          <!-- Notice / Memo -->
+          <div id="invMemoBox" class="p-4 rounded-xl bg-[#090A0F] border border-white/5 space-y-1">
+            <div class="text-[11px] text-slate-500 font-bold uppercase" data-i18n="label_memo">공지 및 메모</div>
+            <p id="invMemoText" class="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed"></p>
+          </div>
+
+          <!-- Attendees confirmation status -->
+          <div>
+            <div class="text-[11px] text-slate-500 font-bold uppercase mb-2" data-i18n="inv_attendees_title">참석자 현황
+            </div>
+            <div id="invAttendeesList" class="flex flex-wrap gap-1.5"></div>
+          </div>
+
+          <!-- Action Buttons: 1-Click .ics calendar export & share -->
+          <div class="pt-4 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <button onclick="downloadIcsCalendar()"
+              class="py-3 px-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-purple-600/30 flex items-center justify-center gap-1.5 active:scale-95 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+              <span data-i18n="btn_add_ics">📅 내 캘린더(.ics)</span>
+            </button>
+            <button onclick="openGoogleCalendar()"
+              class="py-3 px-3 rounded-xl bg-white/5 hover:bg-purple-600/20 border border-white/10 hover:border-purple-500/40 text-slate-200 hover:text-white font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition">
+              <span>🌐</span> <span>Google 캘린더</span>
+            </button>
+            <button onclick="copyShareUrl()"
+              class="py-3 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition">
+              <span>💌</span> <span data-i18n="btn_copy_invite">초청장 공유</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Toast -->
+  <div id="toast"
+    class="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-xl bg-purple-600 text-white font-bold text-xs shadow-2xl shadow-purple-900/60 transition-all duration-300 opacity-0 translate-y-4 pointer-events-none z-50">
+    <span id="toastMsg">복사되었습니다!</span>
+  </div>
+
+  <script>
+    // 5-Languages Translations
+    const translations = {
+      kr: {
+        gate_title: "모임 참여자 이름을 입력해 주세요",
+        gate_desc: "로그인 없이 닉네임만 입력하면 내 시간표를 바로 칠할 수 있습니다.",
+        btn_new_room: "+ 새 모임",
+        create_badge: "0원 서버리스 방 개설",
+        create_title: "새 모임 & 여행 개설",
+        label_category: "목적 분류",
+        label_title: "모임 이름",
+        label_creator: "내 닉네임",
+        label_pin: "수정용 PIN (4자리)",
+        label_dates: "후보 날짜",
+        preset_3days: "3일간",
+        preset_5days: "5일간",
+        preset_weekend: "이번 주말",
+        time_start: "시작 시간",
+        time_end: "종료 시간",
+        time_interval: "조율 단위",
+        label_places: "방문 장소 & 코스 (국내/해외 지도 연동)",
+        label_memo: "공지 및 메모",
+        btn_create: "모임 개설하고 일정 조율 시작 🚀",
+        sync_live: "URL 해시 실시간 동기화",
+        btn_copy_link: "공유 링크",
+        top3_title: "히트맵 분석 최적의 시간 TOP 3",
+        top3_sub: "가장 많은 인원이 참석 가능한 시간대",
+        my_nick_label: "내 닉네임:",
+        btn_change_nick: "확인",
+        participants_label: "참여자:",
+        itinerary_title: "방문 코스 및 동선 안내",
+        itinerary_sub: "순서대로 번호가 매겨진 여행 타임라인",
+        guide_drag: "마우스 드래그 또는 터치",
+        guide_desc: "로 가능한 시간을 칠하세요.",
+        legend_low: "0명",
+        legend_high: "전원 가능",
+        slot_hint: "시간 칸 위에 마우스를 올리거나 탭하면 가능한 참여자 목록을 볼 수 있습니다.",
+        bottom_tip: "시간을 선택하면 URL에 즉시 저장됩니다. 친구들에게 링크를 전달하세요!",
+        btn_save_copy: "일정 저장 & 공유 링크 복사",
+        btn_confirm: "이 시간으로 확정",
+        invite_badge: "OFFICIAL INVITATION",
+        invite_back_to_schedule: "일정 다시 조율하기",
+        inv_confirmed_title: "확정된 모임 일정",
+        inv_location_title: "장소 및 길찾기 안내",
+        inv_attendees_title: "참석자 현황",
+        btn_add_ics: "📅 내 캘린더에 추가 (.ics)",
+        btn_copy_invite: "초청장 링크 복사",
+        map_naver: "네이버 지도 길찾기",
+        map_google: "Google Maps 길찾기",
+        toast_copied: "✅ 공유 링크가 복사되었습니다!",
+        toast_ics: "📅 캘린더 파일(.ics)이 생성되었습니다. 열어서 등록하세요!",
+        toast_saved: "✅ 일정이 저장되었습니다.",
+        pin_mismatch: "입력한 PIN 번호가 기존 등록된 번호와 일치하지 않습니다.",
+        no_best: "아직 등록된 일정이 없습니다. 시간을 색칠해 보세요!"
+      },
+      en: {
+        gate_title: "Enter Your Name to Participate",
+        gate_desc: "No login needed. Enter your name and paint your availability.",
+        btn_new_room: "+ New Meeting",
+        create_badge: "Zero-Cost Serverless Setup",
+        create_title: "Create Meeting & Trip",
+        label_category: "Category",
+        label_title: "Meeting Title",
+        label_creator: "My Nickname",
+        label_pin: "PIN (4 digits)",
+        label_dates: "Candidate Dates",
+        preset_3days: "3 Days",
+        preset_5days: "5 Days",
+        preset_weekend: "This Weekend",
+        time_start: "Start Hour",
+        time_end: "End Hour",
+        time_interval: "Interval",
+        label_places: "Places & Routes (Naver / Google Maps)",
+        label_memo: "Notice & Notes",
+        btn_create: "Create & Start Coordination 🚀",
+        sync_live: "URL Hash Real-time Sync",
+        btn_copy_link: "Share Link",
+        top3_title: "Heatmap Top 3 Optimal Times",
+        top3_sub: "Timeslots with the highest consensus",
+        my_nick_label: "My Nickname:",
+        btn_change_nick: "Set",
+        participants_label: "Participants:",
+        itinerary_title: "Itinerary & Course Map",
+        itinerary_sub: "Numbered step-by-step travel timeline",
+        guide_drag: "Drag or tap",
+        guide_desc: " to paint available hours.",
+        legend_low: "0",
+        legend_high: "All Available",
+        slot_hint: "Hover or tap any cell to inspect available participants.",
+        bottom_tip: "Changes are automatically synced to the URL. Share the link!",
+        btn_save_copy: "Save & Copy Share Link",
+        btn_confirm: "Confirm this time",
+        invite_badge: "OFFICIAL INVITATION",
+        invite_back_to_schedule: "Reopen Scheduling",
+        inv_confirmed_title: "Confirmed Schedule",
+        inv_location_title: "Locations & Directions",
+        inv_attendees_title: "Attendee Status",
+        btn_add_ics: "📅 Add to Calendar (.ics)",
+        btn_copy_invite: "Copy Invitation Link",
+        map_naver: "Naver Maps Directions",
+        map_google: "Google Maps Directions",
+        toast_copied: "✅ Share link copied!",
+        toast_ics: "📅 .ics file generated! Open to add to calendar.",
+        toast_saved: "✅ Availability saved.",
+        pin_mismatch: "Incorrect 4-digit PIN for this nickname.",
+        no_best: "No availability voted yet. Paint your hours!"
+      },
+      ja: {
+        gate_title: "参加者のお名前を入力してください",
+        gate_desc: "ログイン不要。お名前を入力して空いている時間を塗りましょう。",
+        btn_new_room: "+ 新規作成",
+        create_badge: "0円サーバーレス設定",
+        create_title: "予定・旅行の作成",
+        label_category: "カテゴリー",
+        label_title: "予定のタイトル",
+        label_creator: "ニックネーム",
+        label_pin: "暗証番号 (4桁PIN)",
+        label_dates: "候補日程",
+        preset_3days: "3日間",
+        preset_5days: "5日間",
+        preset_weekend: "今週末",
+        time_start: "開始時間",
+        time_end: "終了時間",
+        time_interval: "時間単位",
+        label_places: "訪問場所・ルート (マップ連携)",
+        label_memo: "お知らせ・メモ",
+        btn_create: "ルームを作成して調整開始 🚀",
+        sync_live: "URLハッシュ同期中",
+        btn_copy_link: "共有リンク",
+        top3_title: "ヒートマップ分析 最適時間 TOP 3",
+        top3_sub: "最も参加可能な人数が多い時間帯",
+        my_nick_label: "ニックネーム:",
+        btn_change_nick: "決定",
+        participants_label: "参加者:",
+        itinerary_title: "訪問コース・動線案内",
+        itinerary_sub: "番号順タイムライン",
+        guide_drag: "ドラッグまたはタップ",
+        guide_desc: "で空いている時間を塗ってください。",
+        legend_low: "0人",
+        legend_high: "全員可能",
+        slot_hint: "セルをタップして参加可能メンバーを確認できます。",
+        bottom_tip: "選択すると即座にURLへ保存されます。リンクを共有しましょう！",
+        btn_save_copy: "保存して共有リンクをコピー",
+        btn_confirm: "この時間で確定",
+        invite_badge: "OFFICIAL INVITATION",
+        invite_back_to_schedule: "日程調整に戻る",
+        inv_confirmed_title: "確定した日程",
+        inv_location_title: "場所とアクセス",
+        inv_attendees_title: "参加者状況",
+        btn_add_ics: "📅 カレンダーに追加 (.ics)",
+        btn_copy_invite: "招待状リンクをコピー",
+        map_naver: "Naverマップ道案内",
+        map_google: "Google Mapsルート案内",
+        toast_copied: "✅ 共有リンクをコピーしました！",
+        toast_ics: "📅 .icsファイルをダウンロードしました。",
+        toast_saved: "✅ 保存しました。",
+        pin_mismatch: "PIN番号が一致しません。",
+        no_best: "まだ予定が投票されていません。"
+      },
+      zh: {
+        gate_title: "请输入参与者姓名",
+        gate_desc: "无需登录，输入昵称即可直接涂抹您的空闲时间。",
+        btn_new_room: "+ 新建聚会",
+        create_badge: "零成本Serverless开房",
+        create_title: "发起聚会与旅行规划",
+        label_category: "分类",
+        label_title: "聚会名称",
+        label_creator: "我的昵称",
+        label_pin: "编辑密码 (4位PIN)",
+        label_dates: "候选日期",
+        preset_3days: "3天内",
+        preset_5days: "5天内",
+        preset_weekend: "本周末",
+        time_start: "开始时间",
+        time_end: "结束时间",
+        time_interval: "时间步长",
+        label_places: "游览地点与动线 (高德/Google地图)",
+        label_memo: "公告与备忘",
+        btn_create: "发起日程并开始涂色 🚀",
+        sync_live: "URL Hash实时同步",
+        btn_copy_link: "分享链接",
+        top3_title: "热力图最优推荐 TOP 3",
+        top3_sub: "重合人数最多的时间段",
+        my_nick_label: "我的昵称:",
+        btn_change_nick: "确认",
+        participants_label: "参与者:",
+        itinerary_title: "行程路线与动线",
+        itinerary_sub: "按序号标注的游览轨迹",
+        guide_drag: "鼠标拖拽或触屏滑动",
+        guide_desc: "涂抹你的空闲时间。",
+        legend_low: "0人",
+        legend_high: "全员空闲",
+        slot_hint: "悬停或点击格子可查看空闲成员。",
+        bottom_tip: "涂色后会自动同步到URL，直接把链接发到群里即可！",
+        btn_save_copy: "保存并复制分享链接",
+        btn_confirm: "敲定此时间",
+        invite_badge: "OFFICIAL INVITATION",
+        invite_back_to_schedule: "重新调整时间",
+        inv_confirmed_title: "敲定的聚会日程",
+        inv_location_title: "地点与导航",
+        inv_attendees_title: "出席情况",
+        btn_add_ics: "📅 添加到系统日历 (.ics)",
+        btn_copy_invite: "复制邀请函链接",
+        map_naver: "Naver地图导航",
+        map_google: "Google Maps路线导航",
+        toast_copied: "✅ 链接已复制！",
+        toast_ics: "📅 日历文件(.ics)已生成，点击即可添加。",
+        toast_saved: "✅ 日程已保存。",
+        pin_mismatch: "4位PIN密码不符。",
+        no_best: "暂无投票记录，快去涂色吧！"
+      },
+      es: {
+        gate_title: "Ingresa tu nombre para participar",
+        gate_desc: "Sin registro. Ingresa tu apodo y pinta tus horas disponibles.",
+        btn_new_room: "+ Nueva reunión",
+        create_badge: "Configuración Serverless 0$",
+        create_title: "Crear reunión o viaje",
+        label_category: "Categoría",
+        label_title: "Título",
+        label_creator: "Mi apodo",
+        label_pin: "PIN de 4 dígitos",
+        label_dates: "Fechas candidatas",
+        preset_3days: "3 días",
+        preset_5days: "5 días",
+        preset_weekend: "Este fin de semana",
+        time_start: "Hora inicio",
+        time_end: "Hora fin",
+        time_interval: "Intervalo",
+        label_places: "Lugares y rutas (Mapas)",
+        label_memo: "Aviso o notas",
+        btn_create: "Crear y comenzar a pintar 🚀",
+        sync_live: "Sincronizado vía URL Hash",
+        btn_copy_link: "Copiar enlace",
+        top3_title: "TOP 3 mejores horarios",
+        top3_sub: "Horas con mayor cantidad de asistentes",
+        my_nick_label: "Mi apodo:",
+        btn_change_nick: "OK",
+        participants_label: "Participantes:",
+        itinerary_title: "Itinerario y mapa de ruta",
+        itinerary_sub: "Línea de tiempo numerada",
+        guide_drag: "Arrastra o toca",
+        guide_desc: " para pintar tus horas disponibles.",
+        legend_low: "0",
+        legend_high: "Todos disponibles",
+        slot_hint: "Toca o pasa el cursor para ver quién puede asistir.",
+        bottom_tip: "Los cambios se guardan en la URL automáticamente. ¡Comparte el enlace!",
+        btn_save_copy: "Guardar y copiar enlace",
+        btn_confirm: "Confirmar este horario",
+        invite_badge: "OFFICIAL INVITATION",
+        invite_back_to_schedule: "Reabrir coordinación",
+        inv_confirmed_title: "Horario confirmado",
+        inv_location_title: "Lugares e indicaciones",
+        inv_attendees_title: "Asistentes",
+        btn_add_ics: "📅 Añadir al calendario (.ics)",
+        btn_copy_invite: "Copiar enlace de invitación",
+        map_naver: "Ruta en Naver Map",
+        map_google: "Ruta en Google Maps",
+        toast_copied: "✅ ¡Enlace copiado!",
+        toast_ics: "📅 Archivo .ics descargado. ¡Ábrelo!",
+        toast_saved: "✅ Disponibilidad guardada.",
+        pin_mismatch: "El PIN de 4 dígitos es incorrecto.",
+        no_best: "No hay votos registrados aún."
+      }
+    };
+
+    let currentLang = localStorage.getItem('meetple_lang') || 'kr';
+    let roomState = null;
+    let currentUser = localStorage.getItem('meetple_nick') || '';
+    let selectedCandidateDates = [];
+    let formPlaces = [];
+    let formCategory = 'meeting';
+    let currentTimezone = 'Asia/Seoul';
+
+    // Drag tracking
+    let isMouseDown = false;
+    let dragMode = true;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initTimeDropdowns();
+      changeLang(currentLang);
+
+      // Check query params for preset category e.g. meet.html?cat=travel
+      const urlParams = new URLSearchParams(window.location.search);
+      const catParam = urlParams.get('cat');
+      if (catParam && ['event', 'meeting', 'travel', 'place'].includes(catParam)) {
+        selectFormCategory(catParam);
+      }
+
+      // Check URL hash
+      if (window.location.hash && window.location.hash.length > 1) {
+        const decoded = decodeHash(window.location.hash.slice(1));
+        if (decoded && decoded.dates && decoded.dates.length > 0) {
+          roomState = decoded;
+          currentTimezone = roomState.timezone || 'Asia/Seoul';
+          document.getElementById('timezoneSelect').value = currentTimezone;
+          saveToVault(roomState);
+
+          if (roomState.confirmed && roomState.confirmed.isConfirmed) {
+            renderInvitationView();
+          } else {
+            renderSchedulerView();
+          }
+          return;
+        }
+      }
+
+      // Default Create View
+      initDefaultCreateDates();
+      renderCreateView();
+    });
+
+    function initTimeDropdowns() {
+      const startSelect = document.getElementById('selectStartHour');
+      const endSelect = document.getElementById('selectEndHour');
+      startSelect.innerHTML = '';
+      endSelect.innerHTML = '';
+      for (let h = 0; h <= 24; h++) {
+        const label = `${String(h).padStart(2, '0')}:00`;
+        startSelect.add(new Option(label, h, false, h === 9));
+        endSelect.add(new Option(label, h, false, h === 22));
+      }
+    }
+
+    function selectFormCategory(cat) {
+      formCategory = cat;
+      document.querySelectorAll('.form-cat-btn').forEach(b => {
+        b.className = 'form-cat-btn py-2.5 rounded-xl border border-white/10 bg-[#090A0F] text-xs font-bold text-slate-300 hover:border-purple-500 transition';
+      });
+      const target = document.getElementById(`catBtn-${cat}`);
+      if (target) {
+        target.className = 'form-cat-btn py-2.5 rounded-xl border border-purple-500 bg-purple-600/20 text-xs font-bold text-purple-300 transition';
+      }
+    }
+
+    function changeLang(lang) {
+      currentLang = lang;
+      localStorage.setItem('meetple_lang', lang);
+      document.getElementById('langSelect').value = lang;
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (translations[lang] && translations[lang][key]) {
+          el.textContent = translations[lang][key];
+        }
+      });
+      if (roomState) {
+        if (roomState.confirmed && roomState.confirmed.isConfirmed) {
+          renderInvitationView();
+        } else {
+          updateTop3Banner();
+        }
+      } else {
+        renderMiniCalendar();
+      }
+    }
+
+    // Inline Mini Calendar State
+    let calDate = new Date();
+    let miniCalYear = calDate.getFullYear();
+    let miniCalMonth = calDate.getMonth();
+
+    function renderMiniCalendar() {
+      const titleEl = document.getElementById('miniCalTitle');
+      const gridEl = document.getElementById('miniCalDaysGrid');
+      if (!titleEl || !gridEl) return;
+
+      const monthNamesEn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      titleEl.textContent = currentLang === 'kr'
+        ? `${miniCalYear}년 ${miniCalMonth + 1}월`
+        : `${monthNamesEn[miniCalMonth]} ${miniCalYear}`;
+
+      const firstDay = new Date(miniCalYear, miniCalMonth, 1).getDay();
+      const daysInMonth = new Date(miniCalYear, miniCalMonth + 1, 0).getDate();
+      const todayStr = new Date().toISOString().slice(0, 10);
+
+      let html = '';
+      for (let i = 0; i < firstDay; i++) {
+        html += `<div class="h-8"></div>`;
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${miniCalYear}-${String(miniCalMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const isSelected = selectedCandidateDates.includes(dateStr);
+        const isToday = dateStr === todayStr;
+
+        let styleCls = 'text-slate-300 hover:bg-white/10 hover:text-white';
+        if (isSelected) {
+          styleCls = 'bg-purple-600 text-white font-bold shadow-md shadow-purple-600/50 ring-1 ring-purple-300 scale-105';
+        } else if (isToday) {
+          styleCls = 'text-purple-300 font-bold border border-purple-500/40 hover:bg-white/10';
+        }
+
+        html += `
+          <button type="button" onclick="toggleCandidateDate('${dateStr}')"
+                  class="h-8 w-full rounded-lg text-xs flex items-center justify-center transition-all ${styleCls}">
+            ${day}
+          </button>
+        `;
+      }
+
+      gridEl.innerHTML = html;
+    }
+
+    function changeMiniCalMonth(delta) {
+      miniCalMonth += delta;
+      if (miniCalMonth < 0) {
+        miniCalMonth = 11;
+        miniCalYear--;
+      } else if (miniCalMonth > 11) {
+        miniCalMonth = 0;
+        miniCalYear++;
+      }
+      renderMiniCalendar();
+    }
+
+    function toggleCandidateDate(dateStr) {
+      if (selectedCandidateDates.includes(dateStr)) {
+        selectedCandidateDates = selectedCandidateDates.filter(d => d !== dateStr);
+      } else {
+        selectedCandidateDates.push(dateStr);
+        selectedCandidateDates.sort();
+      }
+      renderDatePills();
+      renderMiniCalendar();
+    }
+
+    function initDefaultCreateDates() {
+      selectedCandidateDates = [];
+      const now = new Date();
+      for (let i = 0; i < 3; i++) {
+        const d = new Date(now);
+        d.setDate(d.getDate() + i);
+        selectedCandidateDates.push(d.toISOString().slice(0, 10));
+      }
+      renderDatePills();
+      renderMiniCalendar();
+    }
+
+    function setQuickDates(days) {
+      selectedCandidateDates = [];
+      const now = new Date();
+      for (let i = 0; i < days; i++) {
+        const d = new Date(now);
+        d.setDate(d.getDate() + i);
+        selectedCandidateDates.push(d.toISOString().slice(0, 10));
+      }
+      renderDatePills();
+      renderMiniCalendar();
+    }
+
+    function setWeekendDates() {
+      selectedCandidateDates = [];
+      const now = new Date();
+      const day = now.getDay();
+      const diffToSat = (6 - day + 7) % 7;
+      const sat = new Date(now);
+      sat.setDate(now.getDate() + diffToSat);
+      const sun = new Date(sat);
+      sun.setDate(sat.getDate() + 1);
+      selectedCandidateDates.push(sat.toISOString().slice(0, 10));
+      selectedCandidateDates.push(sun.toISOString().slice(0, 10));
+      renderDatePills();
+      renderMiniCalendar();
+    }
+
+    function removeDate(dateStr) {
+      selectedCandidateDates = selectedCandidateDates.filter(d => d !== dateStr);
+      renderDatePills();
+      renderMiniCalendar();
+    }
+
+    function renderDatePills() {
+      const container = document.getElementById('datePills');
+      if (selectedCandidateDates.length === 0) {
+        container.innerHTML = '<span class="text-xs text-slate-500 py-1">선택된 날짜가 없습니다.</span>';
+        return;
+      }
+      container.innerHTML = selectedCandidateDates.map(d => `
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-600/20 border border-purple-500/30 text-purple-200 text-xs font-medium">
+          ${formatDateBadge(d)}
+          <button type="button" onclick="removeDate('${d}')" class="text-purple-400 hover:text-white font-bold ml-1">✕</button>
+        </span>
+      `).join('');
+    }
+
+    function formatDateBadge(dateStr) {
+      const [y, m, d] = dateStr.split('-');
+      const date = new Date(dateStr);
+      const dayNames = currentLang === 'kr' ? ['일', '월', '화', '수', '목', '금', '토'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      return `${parseInt(m)}/${parseInt(d)} (${dayNames[date.getDay()]})`;
+    }
+
+    // Places List logic
+    function addPlaceItem() {
+      const input = document.getElementById('placeInput');
+      const typeSelect = document.getElementById('placeTypeSelect');
+      const val = input.value.trim();
+      if (!val) return;
+      formPlaces.push({
+        name: val,
+        type: typeSelect.value // 'domestic' or 'intl'
+      });
+      input.value = '';
+      renderFormPlaces();
+    }
+
+    function removeFormPlace(idx) {
+      formPlaces.splice(idx, 1);
+      renderFormPlaces();
+    }
+
+    function renderFormPlaces() {
+      const container = document.getElementById('formPlacesList');
+      if (formPlaces.length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+      container.innerHTML = formPlaces.map((p, i) => {
+        const isDomestic = p.type === 'domestic';
+        const query = encodeURIComponent(p.name);
+        const mapUrl = isDomestic
+          ? `https://map.naver.com/p/search/${query}`
+          : `https://www.google.com/maps/search/?api=1&query=${query}`;
+
+        return `
+        <div class="flex items-center justify-between p-2 rounded-lg bg-[#090A0F] border border-white/5 text-xs">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="w-5 h-5 rounded-full bg-purple-600/30 text-purple-300 font-bold flex items-center justify-center text-[10px] flex-shrink-0">${i + 1}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400 flex-shrink-0">${isDomestic ? '국내(네이버)' : '해외(Google)'}</span>
+            <a href="${mapUrl}" target="_blank" rel="noopener noreferrer" class="text-slate-200 hover:text-purple-300 underline underline-offset-2 font-medium truncate" title="지도 미리보기">
+              ${escapeHtml(p.name)} ↗
+            </a>
+          </div>
+          <button type="button" onclick="removeFormPlace(${i})" class="text-slate-500 hover:text-red-400 text-xs font-bold px-1 flex-shrink-0">✕</button>
+        </div>
+      `;
+      }).join('');
+    }
+
+    // Create Room Handler
+    function handleCreateRoom(e) {
+      e.preventDefault();
+      const title = document.getElementById('inputTitle').value.trim() || '미트플 모임';
+      const creator = document.getElementById('inputCreator').value.trim() || '나';
+      const start = parseInt(document.getElementById('selectStartHour').value);
+      const end = parseInt(document.getElementById('selectEndHour').value);
+      const interval = parseInt(document.getElementById('selectInterval').value);
+      const memo = document.getElementById('inputMemo').value.trim();
+
+      if (selectedCandidateDates.length === 0) {
+        alert(currentLang === 'kr' ? '최소 1개 이상의 후보 날짜를 선택해주세요.' : 'Please select at least 1 candidate date.');
+        return;
+      }
+      if (start >= end) {
+        alert(currentLang === 'kr' ? '종료 시간은 시작 시간보다 늦어야 합니다.' : 'End hour must be later than start hour.');
+        return;
+      }
+
+      currentUser = creator;
+      localStorage.setItem('meetple_nick', currentUser);
+
+      roomState = {
+        title,
+        category: formCategory,
+        dates: [...selectedCandidateDates].sort(),
+        start,
+        end,
+        interval: interval || 30,
+        timezone: currentTimezone,
+        memo,
+        places: [...formPlaces],
+        confirmed: { isConfirmed: false, slotId: '', date: '', time: '' },
+        users: [
+          { name: creator, slots: [] }
+        ]
+      };
+
+      updateHashAndSync();
+      saveToVault(roomState);
+      renderSchedulerView();
+    }
+
+    // Encoding & Hash
+    function encodeState(state) {
+      try {
+        const json = JSON.stringify(state);
+        return window.LZString ? LZString.compressToEncodedURIComponent(json) : btoa(encodeURIComponent(json));
+      } catch (err) {
+        return '';
+      }
+    }
+
+    function decodeHash(hashStr) {
+      try {
+        if (window.LZString) {
+          const decompressed = LZString.decompressFromEncodedURIComponent(hashStr);
+          if (decompressed) return JSON.parse(decompressed);
+        }
+        return JSON.parse(decodeURIComponent(atob(hashStr)));
+      } catch (err) {
+        return null;
+      }
+    }
+
+    function updateHashAndSync() {
+      if (!roomState) return;
+      const hash = encodeState(roomState);
+      if (hash) {
+        history.replaceState(null, '', '#' + hash);
+        saveToVault(roomState);
+      }
+    }
+
+    function saveToVault(state) {
+      if (!state || !state.title) return;
+      try {
+        let vault = JSON.parse(localStorage.getItem('meetple_vault')) || [];
+        const currentHash = encodeState(state);
+        const existingIdx = vault.findIndex(item => item.title === state.title);
+        const vaultEntry = {
+          title: state.title,
+          category: state.category || 'meeting',
+          hash: currentHash,
+          url: `meet.html#${currentHash}`,
+          dateRange: `${state.dates[0]} ~ ${state.dates[state.dates.length - 1]}`,
+          confirmed: state.confirmed && state.confirmed.isConfirmed,
+          updatedAt: new Date().toISOString()
+        };
+        if (existingIdx >= 0) {
+          vault[existingIdx] = vaultEntry;
+        } else {
+          vault.unshift(vaultEntry);
+        }
+        localStorage.setItem('meetple_vault', JSON.stringify(vault.slice(0, 30)));
+      } catch (e) { }
+    }
+
+    function renderCreateView() {
+      document.getElementById('createView').classList.remove('hidden');
+      document.getElementById('scheduleView').classList.add('hidden');
+      document.getElementById('invitationView').classList.add('hidden');
+      document.getElementById('resetRoomBtn').classList.add('hidden');
+    }
+
+    function resetToNewRoom() {
+      if (confirm(currentLang === 'kr' ? '새 모임을 만드시겠습니까?' : 'Create a new meeting?')) {
+        window.location.hash = '';
+        roomState = null;
+        formPlaces = [];
+        renderFormPlaces();
+        initDefaultCreateDates();
+        renderCreateView();
+      }
+    }
+
+    // VIEW 2: Scheduler View
+    function renderSchedulerView() {
+      document.getElementById('createView').classList.add('hidden');
+      document.getElementById('scheduleView').classList.remove('hidden');
+      document.getElementById('invitationView').classList.add('hidden');
+      document.getElementById('resetRoomBtn').classList.remove('hidden');
+
+      // Category badge
+      const catLabels = {
+        event: { icon: '🎉', label: '이벤트', cls: 'bg-pink-600/30 text-pink-300 border-pink-500/30' },
+        meeting: { icon: '👥', label: '모임', cls: 'bg-purple-600/30 text-purple-300 border-purple-500/30' },
+        travel: { icon: '✈️', label: '여행', cls: 'bg-cyan-600/30 text-cyan-300 border-cyan-500/30' },
+        place: { icon: '📍', label: '장소', cls: 'bg-amber-600/30 text-amber-300 border-amber-500/30' }
+      };
+      const catInfo = catLabels[roomState.category] || catLabels.meeting;
+      const catEl = document.getElementById('roomCatBadge');
+      catEl.className = `px-2 py-0.5 rounded text-[11px] font-bold border ${catInfo.cls}`;
+      catEl.textContent = `${catInfo.icon} ${catInfo.label}`;
+
+      document.getElementById('roomTitleDisplay').textContent = roomState.title;
+      document.getElementById('roomMetaDisplay').textContent = `${formatDateBadge(roomState.dates[0])} ~ ${formatDateBadge(roomState.dates[roomState.dates.length - 1])} (${roomState.start}:00 ~ ${roomState.end}:00 / ${roomState.interval || 30}분 단위)`;
+
+      // User session
+      currentUser = localStorage.getItem('meetple_nick') || '';
+      updateUserGateState();
+
+      if (currentUser) {
+        let userObj = roomState.users.find(u => u.name === currentUser);
+        if (!userObj) {
+          userObj = { name: currentUser, slots: [] };
+          roomState.users.push(userObj);
+          updateHashAndSync();
+        }
+      }
+
+      renderParticipantsList();
+      renderPlacesTimeline();
+      buildTimetableGrid();
+      updateTop3Banner();
+    }
+
+    function changeTimezone(tz) {
+      currentTimezone = tz;
+      roomState.timezone = tz;
+      updateHashAndSync();
+      buildTimetableGrid();
+      updateTop3Banner();
+    }
+
+    function updateUserGateState() {
+      const gateCard = document.getElementById('nameGateCard');
+      const userBar = document.getElementById('activeUserBar');
+      if (!gateCard || !userBar) return;
+
+      if (!currentUser) {
+        gateCard.classList.remove('hidden');
+        userBar.classList.add('hidden');
+        renderGateExistingList();
+      } else {
+        gateCard.classList.add('hidden');
+        userBar.classList.remove('hidden');
+        const displayEl = document.getElementById('activeUserNameDisplay');
+        if (displayEl) displayEl.textContent = currentUser;
+      }
+    }
+
+    function submitGateNick() {
+      const input = document.getElementById('gateNickInput');
+      const val = input ? input.value.trim() : '';
+      if (!val) {
+        alert(currentLang === 'kr' ? '이름 또는 닉네임을 입력해 주세요.' : 'Please enter your name.');
+        return;
+      }
+      setCurrentUserAndActivate(val);
+    }
+
+    function selectExistingNick(name) {
+      setCurrentUserAndActivate(name);
+    }
+
+    function setCurrentUserAndActivate(name) {
+      currentUser = name;
+      localStorage.setItem('meetple_nick', currentUser);
+
+      let userObj = roomState.users.find(u => u.name === currentUser);
+      if (!userObj) {
+        userObj = { name: currentUser, slots: [] };
+        roomState.users.push(userObj);
+      }
+
+      updateHashAndSync();
+      updateUserGateState();
+      buildTimetableGrid();
+      renderParticipantsList();
+      updateTop3Banner();
+      showToast(currentLang === 'kr' ? `[${currentUser}] 님 시간표가 활성화되었습니다!` : `Active as [${currentUser}]!`);
+    }
+
+    function openNameGate() {
+      const gateCard = document.getElementById('nameGateCard');
+      const userBar = document.getElementById('activeUserBar');
+      if (gateCard) gateCard.classList.remove('hidden');
+      if (userBar) userBar.classList.add('hidden');
+      renderGateExistingList();
+      const input = document.getElementById('gateNickInput');
+      if (input) {
+        input.value = currentUser || '';
+        input.focus();
+      }
+    }
+
+    function renderGateExistingList() {
+      const listEl = document.getElementById('gateExistingList');
+      if (!listEl || !roomState) return;
+      if (roomState.users.length === 0) {
+        listEl.innerHTML = '<span class="text-xs text-slate-500">아직 등록된 참여자가 없습니다. 첫 번째로 참여해 보세요!</span>';
+        return;
+      }
+      listEl.innerHTML = roomState.users.map(u => `
+        <button type="button" onclick="selectExistingNick('${escapeHtml(u.name)}')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-purple-600/30 border border-white/10 text-slate-300 hover:text-white text-xs font-medium transition flex items-center gap-1">
+          <span>👤</span> <span>${escapeHtml(u.name)}</span>
+          <span class="text-[10px] text-purple-400">(${u.slots.length})</span>
+        </button>
+      `).join('');
+    }
+
+    function renderParticipantsList() {
+      const container = document.getElementById('participantsList');
+      if (!container || !roomState) return;
+      container.innerHTML = roomState.users.map(u => {
+        const isMe = u.name === currentUser;
+        return `
+          <button type="button" onclick="selectExistingNick('${escapeHtml(u.name)}')" title="클릭하여 ${escapeHtml(u.name)} 님 시간표로 전환" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition ${isMe ? 'bg-purple-600 text-white shadow-sm shadow-purple-600/40 ring-1 ring-purple-300' : 'bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300'
+          }">
+            <span>${isMe ? '👑 ' : '👤 '}${escapeHtml(u.name)}</span>
+            <span class="opacity-70 text-[10px]">(${u.slots.length})</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderPlacesTimeline() {
+      const card = document.getElementById('placesTimelineCard');
+      const container = document.getElementById('placesSequenceList');
+      if (!card || !container) return;
+
+      if (!roomState.places || roomState.places.length === 0) {
+        card.classList.add('hidden');
+        container.innerHTML = '';
+        return;
+      }
+
+      card.classList.remove('hidden');
+      container.innerHTML = roomState.places.map((p, idx) => {
+        const isDomestic = p.type === 'domestic';
+        const query = encodeURIComponent(p.name);
+        const dirUrl = isDomestic
+          ? `https://map.naver.com/p/search/${query}`
+          : `https://www.google.com/maps/dir/?api=1&destination=${query}`;
+        const mapLabel = isDomestic ? '네이버 길찾기' : 'Google 길찾기';
+        const typeBadge = isDomestic ? '국내' : '해외';
+
+        return `
+          <div class="flex items-center justify-between p-3 rounded-xl bg-[#090A0F] border border-white/5 text-xs hover:border-purple-500/30 transition">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span class="w-6 h-6 rounded-full bg-purple-600/30 text-purple-300 font-extrabold flex items-center justify-center text-xs flex-shrink-0">${idx + 1}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400 flex-shrink-0">${typeBadge}</span>
+              <span class="text-white font-bold truncate">${escapeHtml(p.name)}</span>
+            </div>
+            <a href="${dirUrl}" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-[11px] flex items-center gap-1 shadow-sm flex-shrink-0 transition">
+              <span>🧭</span> <span>${mapLabel}</span>
+            </a>
+          </div>
+        `;
+      }).join('');
+    }
+
+    let mobileActiveTab = 'my';
+    function switchMobileTab(tab) {
+      mobileActiveTab = tab;
+      const myCol = document.getElementById('myGridColumn');
+      const groupCol = document.getElementById('groupGridColumn');
+      const btnMy = document.getElementById('mTabMy');
+      const btnGroup = document.getElementById('mTabGroup');
+
+      if (tab === 'my') {
+        if (myCol) myCol.classList.remove('hidden');
+        if (groupCol) { groupCol.classList.add('hidden'); groupCol.classList.add('lg:block'); }
+        if (btnMy) btnMy.className = 'flex-1 py-2 rounded-lg font-bold bg-emerald-600 text-white transition';
+        if (btnGroup) btnGroup.className = 'flex-1 py-2 rounded-lg text-slate-400 hover:text-white transition';
+      } else {
+        if (myCol) { myCol.classList.add('hidden'); myCol.classList.add('lg:block'); }
+        if (groupCol) groupCol.classList.remove('hidden');
+        if (btnMy) btnMy.className = 'flex-1 py-2 rounded-lg text-slate-400 hover:text-white transition';
+        if (btnGroup) btnGroup.className = 'flex-1 py-2 rounded-lg font-bold bg-purple-600 text-white transition';
+      }
+    }
+
+    function selectAllMySlots() {
+      if (!currentUser) {
+        openNameGate();
+        showToast('먼저 이름을 입력하고 [참여하기]를 눌러주세요!');
+        return;
+      }
+      let myUser = roomState.users.find(u => u.name === currentUser);
+      if (!myUser) {
+        myUser = { name: currentUser, slots: [] };
+        roomState.users.push(myUser);
+      }
+      const all = [];
+      const interval = roomState.interval || 30;
+      const steps = 60 / interval;
+      roomState.dates.forEach(d => {
+        for (let h = roomState.start; h < roomState.end; h++) {
+          for (let s = 0; s < steps; s++) {
+            const timeLabel = `${String(h).padStart(2, '0')}:${String(s * interval).padStart(2, '0')}`;
+            all.push(`${d}_${timeLabel}`);
+          }
+        }
+      });
+      myUser.slots = all;
+      updateHashAndSync();
+      buildTimetableGrid();
+      renderParticipantsList();
+      updateTop3Banner();
+      showToast(currentLang === 'kr' ? '모든 시간대가 선택되었습니다.' : 'All slots selected.');
+    }
+
+    function clearAllMySlots() {
+      if (!currentUser) return;
+      let myUser = roomState.users.find(u => u.name === currentUser);
+      if (myUser) {
+        myUser.slots = [];
+        updateHashAndSync();
+        buildTimetableGrid();
+        renderParticipantsList();
+        updateTop3Banner();
+        showToast(currentLang === 'kr' ? '내 시간표가 모두 지워졌습니다.' : 'All slots cleared.');
+      }
+    }
+
+    // Feature 2: When2meet Style Timetable Grids (My Availability + Group Heatmap)
+    function buildTimetableGrid() {
+      const myContainer = document.getElementById('myTimetableGrid');
+      const groupContainer = document.getElementById('groupTimetableGrid');
+      if (!myContainer || !groupContainer || !roomState) return;
+
+      const dates = roomState.dates;
+      const startH = roomState.start;
+      const endH = roomState.end;
+      const interval = roomState.interval || 30;
+      const totalUsers = roomState.users.length;
+
+      const myUser = roomState.users.find(u => u.name === currentUser) || { slots: [] };
+      const mySlots = new Set(myUser.slots);
+      const tzLabel = currentTimezone.split('/')[1] || '시간';
+
+      // 1. Build Left Grid (My Availability Grid)
+      if (!currentUser) {
+        myContainer.innerHTML = `
+          <div class="py-12 px-4 text-center space-y-3">
+            <div class="text-3xl">👋</div>
+            <div class="text-sm font-bold text-white">참여자 이름을 먼저 입력해 주세요</div>
+            <p class="text-xs text-purple-300/80 max-w-xs mx-auto">상단 [참여자 이름 입력] 카드에서 이름을 입력하고 [참여하기]를 누르면 내 시간표가 활성화됩니다.</p>
+            <button type="button" onclick="openNameGate()" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md transition">
+              이름 입력하기 🚀
+            </button>
+          </div>
+        `;
+      } else {
+        let myHtml = '';
+        myHtml += `<div class="grid" style="grid-template-columns: 50px repeat(${dates.length}, minmax(52px, 1fr)); gap: 3px; margin-bottom: 3px;">`;
+        myHtml += `<div class="text-[10px] font-bold text-slate-500 flex items-center justify-center py-1.5">${tzLabel}</div>`;
+        dates.forEach(d => {
+          myHtml += `<div class="text-xs font-bold text-slate-200 bg-[#090A0F] py-1.5 px-1 rounded-md border border-white/5 text-center truncate">${formatDateBadge(d)}</div>`;
+        });
+        myHtml += `</div>`;
+
+        for (let h = startH; h < endH; h++) {
+          const stepsPerHour = 60 / interval;
+          for (let s = 0; s < stepsPerHour; s++) {
+            const minute = s * interval;
+            const isOnTheHour = (minute === 0);
+            const timeLabel = `${String(h).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+            const rowBorderClass = isOnTheHour ? 'border-t-2 border-white/20' : 'border-t border-dashed border-white/10';
+            const cellHeight = interval === 15 ? 'h-6' : interval === 30 ? 'h-8' : 'h-10';
+
+            myHtml += `<div class="grid ${rowBorderClass}" style="grid-template-columns: 50px repeat(${dates.length}, minmax(52px, 1fr)); gap: 3px; padding-top: 2px; padding-bottom: 2px;">`;
+            myHtml += `<div class="${isOnTheHour ? 'text-[11px] font-extrabold text-slate-200' : 'text-[10px] font-medium text-slate-500'} flex items-center justify-center">${isOnTheHour ? timeLabel : ':' + String(minute).padStart(2, '0')}</div>`;
+
+            dates.forEach(d => {
+              const slotId = `${d}_${timeLabel}`;
+              const isSelected = mySlots.has(slotId);
+              const bgStyle = isSelected
+                ? 'background-color: #10b981; border: 1px solid #34d399; box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);'
+                : 'background-color: #0d0f18; border: 1px solid rgba(255, 255, 255, 0.05);';
+
+              myHtml += `
+                <div data-slot="${slotId}"
+                     class="my-grid-cell grid-cell relative ${cellHeight} rounded-md cursor-pointer flex items-center justify-center text-xs select-none transition-all active:scale-95"
+                     style="${bgStyle}">
+                  ${isSelected ? '<span class="text-white text-[10px] font-black pointer-events-none">✓</span>' : ''}
+                </div>
+              `;
+            });
+            myHtml += `</div>`;
+          }
+        }
+        myContainer.innerHTML = myHtml;
+      }
+
+      // 2. Build Right Grid (Group Heatmap Grid)
+      let groupHtml = '';
+      groupHtml += `<div class="grid" style="grid-template-columns: 50px repeat(${dates.length}, minmax(52px, 1fr)); gap: 3px; margin-bottom: 3px;">`;
+      groupHtml += `<div class="text-[10px] font-bold text-slate-500 flex items-center justify-center py-1.5">${tzLabel}</div>`;
+      dates.forEach(d => {
+        groupHtml += `<div class="text-xs font-bold text-slate-200 bg-[#090A0F] py-1.5 px-1 rounded-md border border-white/5 text-center truncate">${formatDateBadge(d)}</div>`;
+      });
+      groupHtml += `</div>`;
+
+      for (let h = startH; h < endH; h++) {
+        const stepsPerHour = 60 / interval;
+        for (let s = 0; s < stepsPerHour; s++) {
+          const minute = s * interval;
+          const isOnTheHour = (minute === 0);
+          const timeLabel = `${String(h).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+          const rowBorderClass = isOnTheHour ? 'border-t-2 border-white/20' : 'border-t border-dashed border-white/10';
+          const cellHeight = interval === 15 ? 'h-6' : interval === 30 ? 'h-8' : 'h-10';
+
+          groupHtml += `<div class="grid ${rowBorderClass}" style="grid-template-columns: 50px repeat(${dates.length}, minmax(52px, 1fr)); gap: 3px; padding-top: 2px; padding-bottom: 2px;">`;
+          groupHtml += `<div class="${isOnTheHour ? 'text-[11px] font-extrabold text-slate-200' : 'text-[10px] font-medium text-slate-500'} flex items-center justify-center">${isOnTheHour ? timeLabel : ':' + String(minute).padStart(2, '0')}</div>`;
+
+          dates.forEach(d => {
+            const slotId = `${d}_${timeLabel}`;
+            const availableUsers = roomState.users.filter(u => u.slots.includes(slotId));
+            const count = availableUsers.length;
+
+            let bgStyle = 'background-color: #0d0f18;';
+            let borderStyle = 'border: 1px solid rgba(255, 255, 255, 0.05);';
+            let textColor = 'text-transparent';
+
+            if (count > 0 && totalUsers > 0) {
+              const ratio = count / totalUsers;
+              const alpha = 0.18 + (0.82 * ratio);
+              bgStyle = `background-color: rgba(168, 85, 247, ${alpha.toFixed(2)});`;
+              textColor = ratio > 0.5 ? 'text-white' : 'text-purple-200';
+              if (ratio === 1 && totalUsers > 1) {
+                borderStyle = 'border: 1px solid #c084fc; box-shadow: 0 0 10px rgba(168, 85, 247, 0.5);';
+              }
+            }
+
+            groupHtml += `
+              <div data-slot="${slotId}"
+                   class="group-grid-cell grid-cell relative ${cellHeight} rounded-md cursor-pointer flex items-center justify-center font-bold text-xs select-none transition-all hover:ring-1 hover:ring-purple-400"
+                   style="${bgStyle} ${borderStyle}">
+                <span class="${textColor} text-[10px] font-black pointer-events-none">${count > 0 ? count : ''}</span>
+              </div>
+            `;
+          });
+          groupHtml += `</div>`;
+        }
+      }
+      groupContainer.innerHTML = groupHtml;
+
+      attachGridEvents();
+    }
+
+    function attachGridEvents() {
+      const myContainer = document.getElementById('myTimetableGrid');
+      const groupContainer = document.getElementById('groupTimetableGrid');
+
+      // Global MouseUp to complete drag
+      window.addEventListener('mouseup', () => {
+        if (isMouseDown) {
+          isMouseDown = false;
+          updateHashAndSync();
+          renderParticipantsList();
+          updateTop3Banner();
+        }
+      });
+
+      // Left My Grid Drag
+      if (myContainer) {
+        const myCells = myContainer.querySelectorAll('.my-grid-cell');
+        myCells.forEach(cell => {
+          const slotId = cell.getAttribute('data-slot');
+
+          cell.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            if (!currentUser) {
+              openNameGate();
+              showToast('먼저 이름을 입력하고 [참여하기]를 눌러주세요!');
+              return;
+            }
+            isMouseDown = true;
+            const myUser = roomState.users.find(u => u.name === currentUser);
+            dragMode = !(myUser && myUser.slots.includes(slotId));
+            applySlotToggle(slotId, dragMode);
+            showSlotInfo(slotId);
+          });
+
+          cell.addEventListener('mouseenter', () => {
+            showSlotInfo(slotId);
+            if (isMouseDown && currentUser) {
+              applySlotToggle(slotId, dragMode);
+            }
+          });
+
+          cell.addEventListener('touchstart', (e) => {
+            if (!currentUser) {
+              openNameGate();
+              showToast('먼저 이름을 입력하고 [참여하기]를 눌러주세요!');
+              return;
+            }
+            isMouseDown = true;
+            const myUser = roomState.users.find(u => u.name === currentUser);
+            dragMode = !(myUser && myUser.slots.includes(slotId));
+            applySlotToggle(slotId, dragMode);
+            showSlotInfo(slotId);
+          }, { passive: true });
+        });
+
+        myContainer.addEventListener('touchmove', (e) => {
+          if (!isMouseDown || !currentUser) return;
+          const touch = e.touches[0];
+          const el = document.elementFromPoint(touch.clientX, touch.clientY);
+          if (el && el.closest('.my-grid-cell')) {
+            const slotId = el.closest('.my-grid-cell').getAttribute('data-slot');
+            if (slotId) {
+              applySlotToggle(slotId, dragMode);
+              showSlotInfo(slotId);
+            }
+          }
+        }, { passive: true });
+
+        myContainer.addEventListener('touchend', () => {
+          if (isMouseDown) {
+            isMouseDown = false;
+            updateHashAndSync();
+            renderParticipantsList();
+            updateTop3Banner();
+          }
+        });
+      }
+
+      // Right Group Grid Hover / Tap Inspector
+      if (groupContainer) {
+        const groupCells = groupContainer.querySelectorAll('.group-grid-cell');
+        groupCells.forEach(cell => {
+          const slotId = cell.getAttribute('data-slot');
+          cell.addEventListener('mouseenter', () => showSlotInfo(slotId));
+          cell.addEventListener('click', () => showSlotInfo(slotId));
+          cell.addEventListener('touchstart', () => showSlotInfo(slotId), { passive: true });
+        });
+      }
+    }
+
+    function applySlotToggle(slotId, enable) {
+      if (!currentUser) {
+        openNameGate();
+        showToast('먼저 이름을 입력하고 [참여하기]를 눌러주세요!');
+        return;
+      }
+      let myUser = roomState.users.find(u => u.name === currentUser);
+      if (!myUser) {
+        myUser = { name: currentUser, slots: [] };
+        roomState.users.push(myUser);
+      }
+      const has = myUser.slots.includes(slotId);
+      if (enable && !has) {
+        myUser.slots.push(slotId);
+        updateCellDoms(slotId);
+      } else if (!enable && has) {
+        myUser.slots = myUser.slots.filter(s => s !== slotId);
+        updateCellDoms(slotId);
+      }
+    }
+
+    function updateCellDoms(slotId) {
+      const totalUsers = roomState.users.length;
+      const count = roomState.users.filter(u => u.slots.includes(slotId)).length;
+      const myUser = roomState.users.find(u => u.name === currentUser);
+      const isSelectedByMe = myUser && myUser.slots.includes(slotId);
+
+      // Left My cell
+      const myCell = document.querySelector(`.my-grid-cell[data-slot="${slotId}"]`);
+      if (myCell) {
+        if (isSelectedByMe) {
+          myCell.style.cssText = 'background-color: #10b981; border: 1px solid #34d399; box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);';
+          myCell.innerHTML = '<span class="text-white text-[10px] font-black pointer-events-none">✓</span>';
+        } else {
+          myCell.style.cssText = 'background-color: #0d0f18; border: 1px solid rgba(255, 255, 255, 0.05);';
+          myCell.innerHTML = '';
+        }
+      }
+
+      // Right Group Heatmap cell
+      const groupCell = document.querySelector(`.group-grid-cell[data-slot="${slotId}"]`);
+      if (groupCell) {
+        let bgStyle = 'background-color: #0d0f18;';
+        let borderStyle = 'border: 1px solid rgba(255, 255, 255, 0.05);';
+        let textColor = 'text-transparent';
+
+        if (count > 0 && totalUsers > 0) {
+          const ratio = count / totalUsers;
+          const alpha = 0.18 + (0.82 * ratio);
+          bgStyle = `background-color: rgba(168, 85, 247, ${alpha.toFixed(2)});`;
+          textColor = ratio > 0.5 ? 'text-white' : 'text-purple-200';
+          if (ratio === 1 && totalUsers > 1) {
+            borderStyle = 'border: 1px solid #c084fc; box-shadow: 0 0 10px rgba(168, 85, 247, 0.5);';
+          }
+        }
+        groupCell.style.cssText = `${bgStyle} ${borderStyle}`;
+        groupCell.innerHTML = `<span class="${textColor} text-[10px] font-black pointer-events-none">${count > 0 ? count : ''}</span>`;
+      }
+    }
+
+    function showSlotInfo(slotId) {
+      const [datePart, timePart] = slotId.split('_');
+      const formattedDate = formatDateBadge(datePart);
+      const available = roomState.users.filter(u => u.slots.includes(slotId)).map(u => u.name);
+      const unavailable = roomState.users.filter(u => !u.slots.includes(slotId)).map(u => u.name);
+      const totalUsers = roomState.users.length;
+
+      const headerEl = document.getElementById('slotDetailHeader');
+      const bodyEl = document.getElementById('slotDetailBody');
+      if (!headerEl || !bodyEl) return;
+
+      const ratioPercent = totalUsers > 0 ? Math.round((available.length / totalUsers) * 100) : 0;
+      const isAll = totalUsers > 1 && available.length === totalUsers;
+
+      headerEl.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="text-white font-extrabold text-sm">📅 ${formattedDate} ${timePart}</span>
+          <span class="px-2 py-0.5 rounded-full ${isAll ? 'bg-emerald-500/20 text-emerald-300 font-black' : 'bg-purple-500/20 text-purple-300 font-bold'} text-[11px]">
+            ${isAll ? '🎉 전원 가능! ' : ''}${available.length}/${totalUsers}명 (${ratioPercent}%)
+          </span>
+        </div>
+      `;
+
+      let availHtml = available.length > 0
+        ? `<div class="flex items-center gap-1.5 flex-wrap"><span class="text-emerald-400 font-bold">가능 (${available.length}):</span>` +
+        available.map(name => `<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-medium border border-emerald-500/30">${escapeHtml(name)}</span>`).join('') +
+        `</div>`
+        : `<span class="text-slate-500">가능한 사람이 없습니다.</span>`;
+
+      let unavailHtml = unavailable.length > 0
+        ? `<div class="flex items-center gap-1.5 flex-wrap"><span class="text-slate-500 font-bold">불가능 (${unavailable.length}):</span>` +
+        unavailable.map(name => `<span class="px-2 py-0.5 rounded bg-white/5 text-slate-400 border border-white/5">${escapeHtml(name)}</span>`).join('') +
+        `</div>`
+        : '';
+
+      bodyEl.innerHTML = `<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-white/5">${availHtml}${unavailHtml}</div>`;
+    }
+
+    // Top 3 Optimal Times & Confirmation Action
+    function updateTop3Banner() {
+      const container = document.getElementById('top3List');
+      if (!roomState || roomState.users.length === 0) {
+        container.innerHTML = `<div class="col-span-full text-xs text-slate-500 py-2">${translations[currentLang].no_best}</div>`;
+        return;
+      }
+
+      const slotCounts = {};
+      roomState.dates.forEach(d => {
+        const interval = roomState.interval || 30;
+        const steps = 60 / interval;
+        for (let h = roomState.start; h < roomState.end; h++) {
+          for (let s = 0; s < steps; s++) {
+            const slotId = `${d}_${String(h).padStart(2, '0')}:${String(s * interval).padStart(2, '0')}`;
+            slotCounts[slotId] = 0;
+          }
+        }
+      });
+
+      roomState.users.forEach(u => {
+        u.slots.forEach(s => {
+          if (slotCounts[s] !== undefined) slotCounts[s]++;
+        });
+      });
+
+      const sortedSlots = Object.entries(slotCounts)
+        .filter(([_, count]) => count > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3);
+
+      if (sortedSlots.length === 0) {
+        container.innerHTML = `<div class="col-span-full text-xs text-slate-500 py-2">${translations[currentLang].no_best}</div>`;
+        return;
+      }
+
+      const rankIcons = ['🥇 1위', '🥈 2위', '🥉 3위'];
+      const totalUsers = roomState.users.length;
+
+      container.innerHTML = sortedSlots.map(([slotId, count], idx) => {
+        const [d, t] = slotId.split('_');
+        const formattedDate = formatDateBadge(d);
+        const isAll = count === totalUsers && totalUsers > 1;
+
+        return `
+          <div class="p-3 rounded-xl bg-[#090A0F] border border-white/5 hover:border-purple-500/40 transition flex flex-col justify-between">
+            <div class="flex items-center justify-between gap-1 mb-1.5">
+              <span class="text-xs font-black text-purple-300">${rankIcons[idx]}</span>
+              <span class="px-2 py-0.5 rounded-full ${isAll ? 'bg-emerald-500/20 text-emerald-300' : 'bg-purple-500/20 text-purple-300'} text-[10px] font-bold">
+                ${count}/${totalUsers}명 (${Math.round((count / totalUsers) * 100)}%)
+              </span>
+            </div>
+            <div class="text-sm font-extrabold text-white">${formattedDate} ${t}</div>
+            <button onclick="confirmSchedule('${slotId}', '${d}', '${t}')" class="mt-2.5 w-full py-1.5 rounded-lg bg-purple-600/30 hover:bg-purple-600 text-purple-200 hover:text-white border border-purple-500/40 font-bold text-xs transition">
+              ${translations[currentLang].btn_confirm}
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Confirmation & Mobile Invitation Mode
+    function confirmSchedule(slotId, date, time) {
+      if (confirm(currentLang === 'kr' ? `[${date} ${time}] 시간대로 모임을 확정하고 모바일 초청장을 발행하시겠습니까?` : `Confirm meeting at [${date} ${time}] and issue invitation card?`)) {
+        roomState.confirmed = {
+          isConfirmed: true,
+          slotId: slotId,
+          date: date,
+          time: time
+        };
+        updateHashAndSync();
+        renderInvitationView();
+      }
+    }
+
+    function switchToScheduler() {
+      roomState.confirmed.isConfirmed = false;
+      updateHashAndSync();
+      renderSchedulerView();
+    }
+
+    // Feature 4: Mobile Invitation View & 1-Click .ics
+    function renderInvitationView() {
+      document.getElementById('createView').classList.add('hidden');
+      document.getElementById('scheduleView').classList.add('hidden');
+      document.getElementById('invitationView').classList.remove('hidden');
+      document.getElementById('resetRoomBtn').classList.remove('hidden');
+
+      const conf = roomState.confirmed;
+      document.getElementById('invTitle').textContent = roomState.title;
+      document.getElementById('invCatLabel').textContent = `MEETPLE · ${roomState.category ? roomState.category.toUpperCase() : 'MEETING'}`;
+
+      const dateStr = conf.date ? formatDateBadge(conf.date) : '미정';
+      document.getElementById('invDateTime').textContent = `${dateStr}  ${conf.time || ''}`;
+      document.getElementById('invTzDisplay').textContent = `타임존: ${currentTimezone}`;
+
+      // Places
+      const placesContainer = document.getElementById('invPlacesList');
+      if (roomState.places && roomState.places.length > 0) {
+        document.getElementById('invPlacesBox').classList.remove('hidden');
+        placesContainer.innerHTML = roomState.places.map((p, idx) => {
+          const isDomestic = p.type === 'domestic';
+          const query = encodeURIComponent(p.name);
+          const dirUrl = isDomestic
+            ? `https://map.naver.com/p/search/${query}`
+            : `https://www.google.com/maps/dir/?api=1&destination=${query}`;
+          const mapLabel = isDomestic ? '네이버 길찾기' : 'Google Maps 길찾기';
+
+          return `
+            <div class="flex items-center justify-between p-3 rounded-xl bg-[#090A0F] border border-white/5 text-xs">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full bg-purple-600/30 text-purple-300 font-extrabold flex items-center justify-center text-xs">${idx + 1}</span>
+                <span class="text-white font-bold">${escapeHtml(p.name)}</span>
+              </div>
+              <a href="${dirUrl}" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-[11px] flex items-center gap-1 shadow-sm">
+                <span>🧭</span> <span>${mapLabel}</span>
+              </a>
+            </div>
+          `;
+        }).join('');
+      } else {
+        document.getElementById('invPlacesBox').classList.add('hidden');
+      }
+
+      // Memo
+      const memoBox = document.getElementById('invMemoBox');
+      if (roomState.memo) {
+        memoBox.classList.remove('hidden');
+        document.getElementById('invMemoText').textContent = roomState.memo;
+      } else {
+        memoBox.classList.add('hidden');
+      }
+
+      // Attendees
+      const attendeesBox = document.getElementById('invAttendeesList');
+      const slotId = conf.slotId;
+      attendeesBox.innerHTML = roomState.users.map(u => {
+        const canAttend = u.slots.includes(slotId);
+        return `
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold ${canAttend ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-white/5 text-slate-500 border border-white/5'
+          }">
+            <span>${canAttend ? '✅' : '❔'}</span>
+            <span>${escapeHtml(u.name)}</span>
+          </span>
+        `;
+      }).join('');
+    }
+
+    // 1-Click .ics Calendar Generation
+    function downloadIcsCalendar() {
+      const conf = roomState.confirmed;
+      if (!conf || !conf.date || !conf.time) return;
+
+      const [y, m, d] = conf.date.split('-');
+      const [h, min] = conf.time.split(':');
+      const duration = roomState.interval || 60;
+
+      const startDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), parseInt(h), parseInt(min));
+      const endDate = new Date(startDate.getTime() + duration * 60000);
+
+      const toIcsDate = (date) => date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      const dtStart = toIcsDate(startDate);
+      const dtEnd = toIcsDate(endDate);
+
+      const loc = roomState.places && roomState.places.length > 0 ? roomState.places.map(p => p.name).join(', ') : '온라인/미정';
+
+      const ics = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Meetple//Meetple Invitation//KO',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+        'BEGIN:VEVENT',
+        `SUMMARY:[${roomState.title}]`,
+        `DESCRIPTION:${(roomState.memo || '').replace(/\n/g, '\\n')}\\n\\nMeetple 초청장: ${window.location.href}`,
+        `LOCATION:${loc}`,
+        `DTSTART:${dtStart}`,
+        `DTEND:${dtEnd}`,
+        'STATUS:CONFIRMED',
+        'END:VEVENT',
+        'END:VCALENDAR'
+      ].join('\r\n');
+
+      const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${roomState.title.replace(/\s+/g, '_')}_meetple.ics`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(translations[currentLang].toast_ics);
+    }
+
+    // Google Calendar 1-Click Web Event Creation
+    function openGoogleCalendar() {
+      const conf = roomState.confirmed;
+      if (!conf || !conf.date || !conf.time) return;
+
+      const [y, m, d] = conf.date.split('-');
+      const [h, min] = conf.time.split(':');
+      const duration = roomState.interval || 60;
+
+      const startDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), parseInt(h), parseInt(min));
+      const endDate = new Date(startDate.getTime() + duration * 60000);
+
+      const toGCalDate = (date) => date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      const dtStart = toGCalDate(startDate);
+      const dtEnd = toGCalDate(endDate);
+
+      const title = encodeURIComponent(`[${roomState.title}]`);
+      const details = encodeURIComponent(`${roomState.memo || ''}\n\nMeetple 초청장: ${window.location.href}`);
+      const loc = encodeURIComponent(roomState.places && roomState.places.length > 0 ? roomState.places.map(p => p.name).join(', ') : '온라인/미정');
+
+      const gUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dtStart}/${dtEnd}&details=${details}&location=${loc}`;
+      window.open(gUrl, '_blank');
+    }
+
+    function copyShareUrl() {
+      updateHashAndSync();
+      const url = window.location.href;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => showToast(translations[currentLang].toast_copied));
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = url;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast(translations[currentLang].toast_copied);
+      }
+    }
+
+    function saveAndCopy() {
+      updateHashAndSync();
+      copyShareUrl();
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMsg').textContent = msg;
+      toast.classList.remove('opacity-0', 'translate-y-4');
+      toast.classList.add('opacity-100', 'translate-y-0');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', 'translate-y-4');
+      }, 3000);
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[m]);
+    }
+  </script>
+</body>
+
+</html>
